@@ -1,0 +1,214 @@
+Principais endpoints da API
+POST /api/auth/register        -> Registrar ONG/Voluntário/Doador
+POST /api/auth/login
+POST /api/auth/refresh
+GET  /api/ongs/:id
+PUT  /api/ongs/:id              -> Admin ONG (editar)
+GET  /api/projects
+POST /api/projects              -> Criar projeto (admin)
+GET  /api/projects/:id
+PUT  /api/projects/:id
+GET  /api/projects/:id/gallery
+POST /api/projects/:id/apply    -> Voluntário candidata
+GET  /api/volunteers/:id
+POST /api/donations/create      -> Iniciar doação (gera PaymentIntent)
+POST /api/donations/webhook     -> Webhook do pgto (Stripe)
+GET  /api/campaigns
+POST /api/campaigns
+GET  /api/reports/financial
+GET  /api/reports/impact
+GET  /api/news
+POST /api/news
+
+Modelo de dados (simplificado — PostgreSQL)
+-- users
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  name TEXT,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT,
+  role VARCHAR(20) NOT NULL, -- admin, volunteer, donor
+  created_at TIMESTAMP DEFAULT now()
+);
+
+-- ngos
+CREATE TABLE ngos (
+  id UUID PRIMARY KEY,
+  name TEXT,
+  mission TEXT,
+  vision TEXT,
+  values TEXT,
+  contact JSONB,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+-- projects
+CREATE TABLE projects (
+  id UUID PRIMARY KEY,
+  ngo_id UUID REFERENCES ngos(id),
+  title TEXT,
+  summary TEXT,
+  description TEXT,
+  category TEXT,
+  goal_amount NUMERIC,
+  raised_amount NUMERIC DEFAULT 0,
+  start_date DATE,
+  end_date DATE,
+  status TEXT,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+-- donations
+CREATE TABLE donations (
+  id UUID PRIMARY KEY,
+  project_id UUID REFERENCES projects(id),
+  user_id UUID REFERENCES users(id),
+  amount NUMERIC NOT NULL,
+  currency CHAR(3) DEFAULT 'BRL',
+  payment_status VARCHAR(20),
+  payment_provider TEXT,
+  payment_reference TEXT,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+-- volunteer_applications
+CREATE TABLE volunteer_applications (
+  id UUID PRIMARY KEY,
+  project_id UUID REFERENCES projects(id),
+  user_id UUID REFERENCES users(id),
+  status VARCHAR(20) DEFAULT 'pending',
+  applied_at TIMESTAMP DEFAULT now()
+);
+Design System (tokens e estrutura CSS)
+
+:root{
+  --brand-500: #0b6ef4;
+  --brand-700: #0555c7;
+  --accent: #f59e0b;
+  --bg: #ffffff;
+  --text: #0f172a;
+  --radius: 12px;
+  --shadow-soft: 0 4px 16px rgba(2,6,23,0.08);
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue";
+}
+
+componentes / código (front-end)
+
+<!-- index.html (exemplo minimal, mobile-first) -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ONG Connect — Engaje, Doe, Transforme</title>
+  <meta name="description" content="Plataforma para ONGs gerenciar projetos, captar recursos e engajar voluntários." />
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+  <header class="site-header" role="banner">
+    <div class="container">
+      <a href="/" class="brand" aria-label="ONG Connect">ONG Connect</a>
+      <nav aria-label="Navegação principal">
+        <ul class="nav">
+          <li><a href="#projects">Projetos</a></li>
+          <li><a href="#volunteer">Voluntariado</a></li>
+          <li><a href="#donate">Doe</a></li>
+          <li><a href="/login">Entrar</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="hero" role="main">
+    <section class="hero-content container">
+      <h1>Conectando pessoas com causas reais</h1>
+      <p>Descubra projetos, mobilize voluntários e apoie financeiramente iniciativas sociais com transparência.</p>
+      <div class="cta">
+        <a class="btn-primary" href="#projects">Ver projetos</a>
+        <a class="btn-outline" href="#volunteer">Seja voluntário</a>
+      </div>
+    </section>
+  </main>
+
+  <section id="projects" class="container">
+    <h2>Projetos em destaque</h2>
+    <ul class="projects-grid" aria-live="polite">
+      <!-- Project cards renderizados via JS/SSR -->
+    </ul>
+  </section>
+
+  <footer role="contentinfo" class="site-footer">
+    <div class="container">
+      <p>&copy; <span id="year"></span> ONG Connect — Transparência e Impacto</p>
+      <nav aria-label="Links de rodapé">
+        <ul>
+          <li><a href="/privacy">Privacidade</a></li>
+          <li><a href="/reports">Relatórios</a></li>
+        </ul>
+      </nav>
+    </div>
+  </footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  // Exemplo simples: carregar 3 projetos de demo (em produção: fetch('/api/projects'))
+  const projects = [
+    {id:'p1', title:'Educação para Todos', summary:'Aulas de reforço para crianças.'},
+    {id:'p2', title:'Horta Comunitária', summary:'Alimentação saudável e sustentável.'},
+    {id:'p3', title:'Oficinas de Emprego', summary:'Capacitação profissional.'}
+  ];
+  const ul = document.querySelector('.projects-grid');
+  projects.forEach(p=>{
+    const li = document.createElement('li');
+    li.className = 'card';
+    li.innerHTML = `<h3>${p.title}</h3><p>${p.summary}</p><a href="/projects/${p.id}" class="btn-small">Saiba mais</a>`;
+    ul.appendChild(li);
+  });
+</script>
+</body>
+</html>
+
+CSS (styles.css minimal, usar Tailwind ou SASS em projeto real):
+
+:root{--brand:#0b6ef4;--text:#0b1220;--bg:#fff}
+*{box-sizing:border-box}
+body{font-family:Inter,system-ui,-apple-system;color:var(--text);margin:0;background:var(--bg)}
+.container{max-width:1100px;margin:0 auto;padding:1rem}
+.skip-link{position:absolute;left:-999px;top:auto;width:1px;height:1px;overflow:hidden}
+.skip-link:focus{left:0;top:0;background:#000;color:#fff;padding:0.5rem}
+.site-header{border-bottom:1px solid #eee;background:#fff}
+.nav{list-style:none;margin:0;padding:0;display:flex;gap:1rem}
+.hero{padding:3rem 0;background:linear-gradient(180deg,#f7fbff, #fff)}
+.hero-content h1{font-size:clamp(1.5rem,4vw,2.5rem);margin:0 0 .5rem}
+.btn-primary{background:var(--brand);color:#fff;padding:.6rem 1rem;border-radius:8px;text-decoration:none}
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin:1rem 0}
+.card{background:#fff;padding:1rem;border-radius:10px;box-shadow:0 4px 12px rgba(2,6,23,.06)}
+@media (prefers-reduced-motion:reduce){*{animation:none}}
+
+Exemplo de backend (Node.js + Express — esqueleto)
+
+// app.ts (TypeScript)
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import morgan from 'morgan';
+
+const app = express();
+app.use(helmet());
+app.use(cors({ origin: 'https://sua-frontend.com' }));
+app.use(express.json());
+app.use(morgan('combined'));
+
+// rotas: auth, projects, donations, volunteers...
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// exemplo: criar donation
+app.post('/api/donations/create', async (req, res) => {
+  const { projectId, amount, currency, donorId } = req.body;
+  // validar, criar registro temporário, criar PaymentIntent no Stripe, retornar clientSecret
+  res.json({ success: true, clientSecret: 'pi_...' });
+});
+
+export default app;
+
